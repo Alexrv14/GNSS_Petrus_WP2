@@ -132,7 +132,45 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                 SatCorrInfo["IppLon"] = float(LosInfo[SatLabel][LosIdx["IPPLON"]])
                 # Get IPP Latitude
                 SatCorrInfo["IppLat"] = float(LosInfo[SatLabel][LosIdx["IPPLAT"]])
+                # Get Monitoring Status from UDREi
+                if int(SatInfo[SatLabel][SatIdx["UDREI"]]) < 14:             
+                    if int(SatInfo[SatLabel][SatIdx["UDREI"]]) < 12:
+                        SatCorrInfo["Flag"] = 1                         # Satellite Monitored and Usable for PA
+                    else:
+                        SatCorrInfo["Flag"] = 2                         # Satellite Monitored and Usable for NPA
+                elif int(SatInfo[SatLabel][SatIdx["UDREI"]]) == 14:          
+                    SatCorrInfo["Flag"] = 0                             # Satellite Non-Monitored
+                elif int(SatInfo[SatLabel][SatIdx["UDREI"]]) == 15:
+                    SatCorrInfo["Flag"] = 0                             # Satellite Dont-Use (DU)
 
+                # CORRECTED ORBIT AND CLOCK
+                # -------------------------------------------------------
+                # Compute corrected Orbit and Clock, as well as the Sigma FLT
+
+                if SatCorrInfo["Flag"] == 1:
+                    # Compute the DTR
+                    SatOrb = np.array([float(SatInfo[SatLabel][SatIdx["SAT-X"]]),float(SatInfo[SatLabel][SatIdx["SAT-Y"]]),\
+                        float(SatInfo[SatLabel][SatIdx["SAT-Z"]])])
+                    SatVel = np.array([float(SatInfo[SatLabel][SatIdx["VEL-X"]]),float(SatInfo[SatLabel][SatIdx["VEL-Y"]]),\
+                        float(SatInfo[SatLabel][SatIdx["VEL-Z"]])])
+                    Dtr = - 2*(np.dot(SatOrb,SatVel)/Const.SPEED_OF_LIGHT**2)
+                    # Corrected SBAS Orbit
+                    SatCorrInfo["SatX"] = float(SatInfo[SatLabel][SatIdx["SAT-X"]]) + float(SatInfo[SatLabel][SatIdx["LTC-X"]])
+                    SatCorrInfo["SatY"] = float(SatInfo[SatLabel][SatIdx["SAT-Y"]]) + float(SatInfo[SatLabel][SatIdx["LTC-Y"]])
+                    SatCorrInfo["SatZ"] = float(SatInfo[SatLabel][SatIdx["SAT-Z"]]) + float(SatInfo[SatLabel][SatIdx["LTC-Z"]])
+                    # Corrected SBAS Clock
+                    SatCorrInfo["SatClk"] = float(SatInfo[SatLabel][SatIdx["SAT-CLK"]]) + float(SatInfo[SatLabel][SatIdx["FC"]]) + \
+                        float(SatInfo[SatLabel][SatIdx["LTC-B"]]) - float(SatInfo[SatLabel][SatIdx["TGD"]]) + Dtr
+                    # Sigma FLT taking into account the degradation parameters
+                    if int(SatInfo[SatLabel][SatIdx["RSS"]]) == 0:      
+                        SatCorrInfo["SigmaFlt"] = (float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]) + \
+                            float(SatInfo[SatLabel][SatIdx["EPS-FC"]]) + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]]) + \
+                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]]) + float(SatInfo[SatLabel][SatIdx["EPS-ER"]]))**2
+                    else:                                              
+                        SatCorrInfo["SigmaFlt"] = (float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]))**2 + \
+                            float(SatInfo[SatLabel][SatIdx["EPS-FC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]])**2 + \
+                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])**2
+                
             # Prepare output for the satellite
             CorrInfo[SatLabel] = SatCorrInfo
 

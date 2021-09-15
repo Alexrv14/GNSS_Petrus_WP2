@@ -44,7 +44,7 @@ from InputOutput import PreproHdr, CorrHdr
 from InputOutput import CSNEPOCHS
 from InputOutput import ObsIdx
 from Preprocessing import runPreProcMeas
-from PreprocessingPlots import generatePreproPlots
+# from PreprocessingPlots import generatePreproPlots
 # from CorrectionsPlots import generateCorrPlots
 from Corrections import runCorrectMeas
 from COMMON.Dates import convertJulianDay2YearMonthDay
@@ -238,7 +238,7 @@ for Rcvr in RcvrInfo.keys():
             print("INFO: Reading file: %s and generating PREPRO figures..." % PreproObsFile)
 
             # Generate Preprocessing plots
-            generatePreproPlots(PreproObsFile)
+            # generatePreproPlots(PreproObsFile)
 
         # If CORR outputs are requested
         if Conf["CORR_OUT"] == 1:
