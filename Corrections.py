@@ -28,6 +28,7 @@ from collections import OrderedDict
 from COMMON import GnssConstants as Const
 from COMMON import Iono, Tropo
 from InputOutput import RcvrIdx, SatIdx, LosIdx
+from math import sqrt, exp
 import numpy as np
 
 def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
@@ -156,7 +157,7 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                         float(SatInfo[SatLabel][SatIdx["SAT-Z"]])])
                     SatVel = np.array([float(SatInfo[SatLabel][SatIdx["VEL-X"]]),float(SatInfo[SatLabel][SatIdx["VEL-Y"]]),\
                         float(SatInfo[SatLabel][SatIdx["VEL-Z"]])])
-                    Dtr = - 2*(np.dot(SatOrb,SatVel)/Const.SPEED_OF_LIGHT**2)
+                    Dtr = - 2*(np.dot(SatOrb,SatVel)/Const.SPEED_OF_LIGHT)
 
                     # Corrected SBAS Orbit and Clock
                     SatCorrInfo["SatX"] = float(SatInfo[SatLabel][SatIdx["SAT-X"]]) + float(SatInfo[SatLabel][SatIdx["LTC-X"]])
@@ -167,17 +168,17 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
                     # Sigma FLT taking into account the degradation parameters
                     if int(SatInfo[SatLabel][SatIdx["RSS"]]) == 0:      
-                        SatCorrInfo["SigmaFlt"] = (float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]) + \
+                        SatCorrInfo["SigmaFlt"] = float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]) + \
                             float(SatInfo[SatLabel][SatIdx["EPS-FC"]]) + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]]) + \
-                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]]) + float(SatInfo[SatLabel][SatIdx["EPS-ER"]]))**2
+                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]]) + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])
                     else:                                              
-                        SatCorrInfo["SigmaFlt"] = (float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]))**2 + \
+                        SatCorrInfo["SigmaFlt"] = sqrt((float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]))**2 + \
                             float(SatInfo[SatLabel][SatIdx["EPS-FC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]])**2 + \
-                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])**2
+                            float(SatInfo[SatLabel][SatIdx["EPS-LTC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])**2)
                 
-                    # CORRECTED TROPOSPHERIC DELAY
+                    # TROPOSPHERIC DELAY
                     # -------------------------------------------------------
-                    # Compute corrected Slant Tropospheric Delay, as well as the Sigma Tropo
+                    # Compute corrected Slant Tropospheric Delay, as well as the Sigma Tropo according to MOPS
 
                     # Compute the STD
                     SatCorrInfo["Std"] = LosInfo[SatLabel][LosIdx["STD"]]
@@ -186,6 +187,30 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                     Tpp = Tropo.computeTropoMappingFunction(SatCorrInfo["Elevation"])
                     SatCorrInfo["SigmaTropo"] = 0.12*Tpp
 
+                    # USER AIRBORNE SIGMA
+                    # -------------------------------------------------------
+                    # Compute corrected user airborne sigma according to MOPS
+
+                    # Compute Sigma Multipath
+                    if SatCorrInfo["Elevation"] < 2:
+                        # Display error
+                        sys.stderr.write("ERROR: Elevation angle is lower than 2 degrees")
+                        sys.exit(-1)
+                    else:
+                        SatCorrInfo["SigmaMultipath"] = 0.13 + 0.53*exp(-SatCorrInfo["Elevation"]/10)
+
+                    # Compute Sigma Noise + Divergence 
+                    if SatCorrInfo["Elevation"] < float(Conf["ELEV_NOISE_TH"]):
+                        SatCorrInfo["SigmaNoiseDiv"] = 0.36
+                    else:
+                        SatCorrInfo["SigmaNoiseDiv"] = 0.15
+
+                    # Compute Sigma Airborne
+                    if int(Conf["EQUIPMENT_CLASS"]) == 2 or int(Conf["EQUIPMENT_CLASS"]) == 3 or int(Conf["EQUIPMENT_CLASS"]) == 4:
+                        SatCorrInfo["SigmaAirborne"] = sqrt(SatCorrInfo["SigmaMultipath"]**2 + SatCorrInfo["SigmaNoiseDiv"]**2)
+
+                    # print("[TESTING]", Dtr, SatCorrInfo["Elevation"])
+                    # print("[TESTING]", SatCorrInfo["SigmaTropo"], SatCorrInfo["SigmaMultipath"], SatCorrInfo["SigmaAirborne"])
 
             # Prepare output for the satellite
             CorrInfo[SatLabel] = SatCorrInfo
