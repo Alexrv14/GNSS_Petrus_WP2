@@ -26,6 +26,7 @@ Common = os.path.dirname(os.path.dirname(
 sys.path.insert(0, Common)
 from collections import OrderedDict
 from COMMON import GnssConstants as Const
+from COMMON import Iono, Tropo
 from InputOutput import RcvrIdx, SatIdx, LosIdx
 import numpy as np
 
@@ -143,24 +144,27 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                 elif int(SatInfo[SatLabel][SatIdx["UDREI"]]) == 15:
                     SatCorrInfo["Flag"] = 0                             # Satellite Dont-Use (DU)
 
-                # CORRECTED ORBIT AND CLOCK
-                # -------------------------------------------------------
-                # Compute corrected Orbit and Clock, as well as the Sigma FLT
-
+                # If the satellite can be used in PA service
                 if SatCorrInfo["Flag"] == 1:
+                
+                    # CORRECTED ORBIT AND CLOCK
+                    # -------------------------------------------------------
+                    # Compute corrected Orbit and Clock, as well as the Sigma FLT
+
                     # Compute the DTR
                     SatOrb = np.array([float(SatInfo[SatLabel][SatIdx["SAT-X"]]),float(SatInfo[SatLabel][SatIdx["SAT-Y"]]),\
                         float(SatInfo[SatLabel][SatIdx["SAT-Z"]])])
                     SatVel = np.array([float(SatInfo[SatLabel][SatIdx["VEL-X"]]),float(SatInfo[SatLabel][SatIdx["VEL-Y"]]),\
                         float(SatInfo[SatLabel][SatIdx["VEL-Z"]])])
                     Dtr = - 2*(np.dot(SatOrb,SatVel)/Const.SPEED_OF_LIGHT**2)
-                    # Corrected SBAS Orbit
+
+                    # Corrected SBAS Orbit and Clock
                     SatCorrInfo["SatX"] = float(SatInfo[SatLabel][SatIdx["SAT-X"]]) + float(SatInfo[SatLabel][SatIdx["LTC-X"]])
                     SatCorrInfo["SatY"] = float(SatInfo[SatLabel][SatIdx["SAT-Y"]]) + float(SatInfo[SatLabel][SatIdx["LTC-Y"]])
                     SatCorrInfo["SatZ"] = float(SatInfo[SatLabel][SatIdx["SAT-Z"]]) + float(SatInfo[SatLabel][SatIdx["LTC-Z"]])
-                    # Corrected SBAS Clock
                     SatCorrInfo["SatClk"] = float(SatInfo[SatLabel][SatIdx["SAT-CLK"]]) + float(SatInfo[SatLabel][SatIdx["FC"]]) + \
                         float(SatInfo[SatLabel][SatIdx["LTC-B"]]) - float(SatInfo[SatLabel][SatIdx["TGD"]]) + Dtr
+
                     # Sigma FLT taking into account the degradation parameters
                     if int(SatInfo[SatLabel][SatIdx["RSS"]]) == 0:      
                         SatCorrInfo["SigmaFlt"] = (float(SatInfo[SatLabel][SatIdx["SIGMAUDRE"]])*float(SatInfo[SatLabel][SatIdx["DELTAUDRE"]]) + \
@@ -171,6 +175,18 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                             float(SatInfo[SatLabel][SatIdx["EPS-FC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]])**2 + \
                             float(SatInfo[SatLabel][SatIdx["EPS-LTC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])**2
                 
+                    # CORRECTED TROPOSPHERIC DELAY
+                    # -------------------------------------------------------
+                    # Compute corrected Slant Tropospheric Delay, as well as the Sigma Tropo
+
+                    # Compute the STD
+                    SatCorrInfo["Std"] = LosInfo[SatLabel][LosIdx["STD"]]
+
+                    # Compute the Sigma Tropo
+                    Tpp = Tropo.computeTropoMappingFunction(SatCorrInfo["Elevation"])
+                    SatCorrInfo["SigmaTropo"] = 0.12*Tpp
+
+
             # Prepare output for the satellite
             CorrInfo[SatLabel] = SatCorrInfo
 
