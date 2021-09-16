@@ -282,7 +282,7 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                     # Compute corrected Slant Tropospheric Delay STD, as well as the Sigma TROPO according to MOPS
 
                     # Compute the STD
-                    SatCorrInfo["Std"] = LosInfo[SatLabel][LosIdx["STD"]]
+                    SatCorrInfo["Std"] = float(LosInfo[SatLabel][LosIdx["STD"]])
 
                     # Compute the Sigma Tropo
                     Tpp = Tropo.computeTropoMappingFunction(SatCorrInfo["Elevation"])
@@ -290,7 +290,7 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
                     # USER AIRBORNE SIGMA
                     # -------------------------------------------------------
-                    # Compute corrected user sigma AIR according to MOPS
+                    # Compute user Sigma AIR according to MOPS
 
                     # Compute Sigma Multipath
                     if SatCorrInfo["Elevation"] < 2:
@@ -310,8 +310,28 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                     if int(Conf["EQUIPMENT_CLASS"]) == 2 or int(Conf["EQUIPMENT_CLASS"]) == 3 or int(Conf["EQUIPMENT_CLASS"]) == 4:
                         SatCorrInfo["SigmaAirborne"] = sqrt(SatCorrInfo["SigmaMultipath"]**2 + SatCorrInfo["SigmaNoiseDiv"]**2)
 
-                    # print("[TESTING]", Dtr, SatCorrInfo["Elevation"])
-                    # print("[TESTING]", SatCorrInfo["SigmaTropo"], SatCorrInfo["SigmaMultipath"], SatCorrInfo["SigmaAirborne"])
+                    # USER SIGMA
+                    # -------------------------------------------------------
+                    # Compute user sigma UERE
+
+                    SatCorrInfo["SigmaUere"] = sqrt(SatCorrInfo["SigmaFlt"]**2 + SatCorrInfo["SigmaUire"]**2 + SatCorrInfo["SigmaTropo"]**2 + \
+                        SatCorrInfo["SigmaAirborne"]**2)
+
+                    # CORRECTED PSEUDO-RANGE AND GEOMETRICAL RANGE
+                    # -------------------------------------------------------
+                    # Compute the corrected pseudo-range and the satellite geometrical range 
+                    # Compute the first residuals
+
+                    # Calculate corrected pseudo-range
+                    SatCorrInfo["CorrPsr"] = SatPrepro["SmoothC1"] + SatCorrInfo["SatClk"] -  SatCorrInfo["Uisd"] - SatCorrInfo["Std"]
+
+                    # Compute satellite geometrical range
+                    RcvrPos = np.array(Rcvr[RcvrIdx["XYZ"]])
+                    SatPos = np.array([SatCorrInfo["SatX"], SatCorrInfo["SatY"], SatCorrInfo["SatZ"]])
+                    SatCorrInfo["GeomRange"] = np.linalg.norm(np.subtract(SatPos, RcvrPos))
+
+                    # Obtain first residuals
+                    SatCorrInfo["PsrResidual"] = SatCorrInfo["CorrPsr"] - SatCorrInfo["GeomRange"]
 
             # Prepare output for the satellite
             CorrInfo[SatLabel] = SatCorrInfo
