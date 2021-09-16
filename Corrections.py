@@ -31,6 +31,93 @@ from InputOutput import RcvrIdx, SatIdx, LosIdx
 from math import sqrt, exp
 import numpy as np
 
+def IonoIGPs(Index, LosInfo):
+
+    # Function defining the IGPs for the ionospheric interpolation
+
+    NorEast = [float(LosInfo[LosIdx["IGP_NE_LON"]]), float(LosInfo[LosIdx["IGP_NE_LAT"]]), float(LosInfo[LosIdx["GIVD_NE"]]), float(LosInfo[LosIdx["GIVE_NE"]])]
+    NorWest = [float(LosInfo[LosIdx["IGP_NW_LON"]]), float(LosInfo[LosIdx["IGP_NW_LAT"]]), float(LosInfo[LosIdx["GIVD_NW"]]), float(LosInfo[LosIdx["GIVE_NW"]])]
+    SouWest = [float(LosInfo[LosIdx["IGP_SW_LON"]]), float(LosInfo[LosIdx["IGP_SW_LAT"]]), float(LosInfo[LosIdx["GIVD_SW"]]), float(LosInfo[LosIdx["GIVE_SW"]])]
+    SouEast = [float(LosInfo[LosIdx["IGP_SE_LON"]]), float(LosInfo[LosIdx["IGP_SE_LAT"]]), float(LosInfo[LosIdx["GIVD_SE"]]), float(LosInfo[LosIdx["GIVE_SE"]])]
+    IgpMask = [NorEast, NorWest, SouWest, SouEast]
+    
+    ActIgps = OrderedDict({})
+    n = 0
+    Counter = Index
+    # Rectangular interpolation
+    if Index == 0:
+        while len(ActIgps.keys()) < 4:
+            ActIgps[str(Counter + 1)] = IgpMask[Counter]
+            Counter = Counter + 1
+        return ActIgps 
+
+    # Triangular interpolation
+    if Index > 0: 
+        while len(ActIgps.keys()) < 3:
+            # Check if index has reached the end of the IgpMask list
+            if Counter//(len(IgpMask)) == 1:
+                Counter = 0
+            ActIgps[str(n + 1)] = IgpMask[Counter]
+            n = n + 1
+            Counter = Counter + 1
+        return ActIgps
+
+def IonoInterpolation(LosInfo):
+
+    # Function cpmputing the UIVD and the sigma UIRE for each line of sight (IPP) by interpolating the values 
+    # of the surrounding active IGPs
+
+    # Internal keys definition
+    LON = 0
+    LAT = 1
+    GIVD = 2
+    GIVE = 3
+    WEIGHT = 4
+
+    # Internal parameters definition
+    Index = int(LosInfo[LosIdx["INTERP"]])
+    IppLong = float(LosInfo[LosIdx["IPPLON"]])
+    IppLat = float(LosInfo[LosIdx["IPPLAT"]])
+
+    # Obtain active IGPs for the interpolation
+    ActIgps = IonoIGPs(Index, LosInfo)
+
+    # Compute the weights for the interpolation (all IPPs between parallels N85 and S85)
+    # Rectangular interpolation
+    if Index == 0:           
+        xpp = (IppLong - ActIgps["3"][LON])/(ActIgps["1"][LON] - ActIgps["3"][LON])
+        ypp = (IppLat - ActIgps["3"][LAT])/(ActIgps["1"][LAT] - ActIgps["3"][LAT])
+        # Add the weights to ActIgps dictionary
+        ActIgps["1"].append(xpp*ypp)
+        ActIgps["2"].append((1-xpp)*ypp)
+        ActIgps["3"].append((1-xpp)*(1-ypp))
+        ActIgps["4"].append(xpp*(1-ypp))
+    # Triangular interpolation
+    elif Index > 0: 
+        if Index % 2 == 0:
+            xpp = (IppLong - ActIgps["2"][LON])/(ActIgps["1"][LON] - ActIgps["2"][LON])
+            ypp = (IppLat - ActIgps["2"][LAT])/(ActIgps["3"][LAT] - ActIgps["2"][LAT])
+        else:
+            xpp = (IppLong - ActIgps["2"][LON])/(ActIgps["3"][LON] - ActIgps["2"][LON])
+            ypp = (IppLat - ActIgps["2"][LAT])/(ActIgps["1"][LAT] - ActIgps["2"][LAT])
+        # Add the weights to ActIgps dictionary
+        ActIgps["1"].append(ypp)
+        ActIgps["2"].append(1-xpp-ypp)
+        ActIgps["3"].append(xpp)
+
+    # Compute UIVD at the IP
+    UIVD = 0
+    for i in range(1, len(ActIgps) + 1):
+        UIVD = UIVD + ActIgps[str(i)][WEIGHT]*ActIgps[str(i)][GIVD]
+
+    # Compute sigma UIRE
+    UIVE2 = 0
+    for i in range(1, len(ActIgps) + 1):
+        UIVE2 = UIVE2 + ActIgps[str(i)][WEIGHT]*ActIgps[str(i)][GIVE]**2
+    UIVE = sqrt(UIVE2)
+
+    return UIVD, UIVE
+
 def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
     # Purpose: correct GNSS preprocessed measurements and compute
@@ -176,9 +263,23 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                             float(SatInfo[SatLabel][SatIdx["EPS-FC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-RRC"]])**2 + \
                             float(SatInfo[SatLabel][SatIdx["EPS-LTC"]])**2 + float(SatInfo[SatLabel][SatIdx["EPS-ER"]])**2)
                 
+                    # IONOSPHERIC DELAY
+                    # -------------------------------------------------------
+                    # Compute corrected Slant Ionospheric Delay UISD, as well as the Sigma UIRE
+
+                    # Compute the UIVD and the Mpp
+                    UIVD, UIVE = IonoInterpolation(LosInfo[SatLabel])
+                    Fpp = Iono.computeIonoMappingFunction(SatCorrInfo["Elevation"])
+                    
+                    # Compute the UISD
+                    SatCorrInfo["Uisd"] = Fpp*UIVD
+
+                    # Compute the Sigma UIRE
+                    SatCorrInfo["SigmaUire"] = Fpp*UIVE
+                    
                     # TROPOSPHERIC DELAY
                     # -------------------------------------------------------
-                    # Compute corrected Slant Tropospheric Delay, as well as the Sigma Tropo according to MOPS
+                    # Compute corrected Slant Tropospheric Delay STD, as well as the Sigma TROPO according to MOPS
 
                     # Compute the STD
                     SatCorrInfo["Std"] = LosInfo[SatLabel][LosIdx["STD"]]
@@ -189,7 +290,7 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
                     # USER AIRBORNE SIGMA
                     # -------------------------------------------------------
-                    # Compute corrected user airborne sigma according to MOPS
+                    # Compute corrected user sigma AIR according to MOPS
 
                     # Compute Sigma Multipath
                     if SatCorrInfo["Elevation"] < 2:
