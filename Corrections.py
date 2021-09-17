@@ -328,16 +328,49 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                     # Compute satellite geometrical range
                     RcvrPos = np.array(Rcvr[RcvrIdx["XYZ"]])
                     SatPos = np.array([SatCorrInfo["SatX"], SatCorrInfo["SatY"], SatCorrInfo["SatZ"]])
-                    SatCorrInfo["GeomRange"] = np.linalg.norm(np.subtract(SatPos, RcvrPos))
+                    Sat_Rcvr = np.subtract(SatPos, RcvrPos)
+                    SatCorrInfo["GeomRange"] = np.linalg.norm(Sat_Rcvr)
 
                     # Obtain first residuals
-                    SatCorrInfo["PsrResidual"] = SatCorrInfo["CorrPsr"] - SatCorrInfo["GeomRange"]
+                    SatCorrInfo["PsrResidual"] = SatCorrInfo["CorrPsr"] - SatCorrInfo["GeomRange"]  
+
+                    # UPDATE SOME PARAMETERS
+                    # -------------------------------------------------------      
+
+                    # Satellite LOS unitary vector and instantaneous orbit corrections vector
+                    ULos = Sat_Rcvr/SatCorrInfo["GeomRange"]
+                    LTCxyz = np.array([float(SatInfo[SatLabel][SatIdx["LTC-X"]]), float(SatInfo[SatLabel][SatIdx["LTC-Y"]]), float(SatInfo[SatLabel][SatIdx["LTC-Z"]])])
+
+                    # Weighted sum of the residuals
+                    ResN = ResN + 1/(SatCorrInfo["SigmaUere"])**2
+                    ResSum = ResSum + SatCorrInfo["PsrResidual"]/(SatCorrInfo["SigmaUere"])**2
+
+                    # ENT-GPS offset parameters
+                    EntGpsN = EntGpsN + 1
+                    EntGpsSum = EntGpsSum + (np.dot(LTCxyz, ULos) - (float(SatInfo[SatLabel][SatIdx["FC"]]) + float(SatInfo[SatLabel][SatIdx["LTC-B"]])))
+
+                # End of if SatCorrInfo["Flag"] == 1:
 
             # Prepare output for the satellite
             CorrInfo[SatLabel] = SatCorrInfo
 
-        # End of if(SatPrepro["Status"] == 1):
+        # End of if SatPrepro["Status"] == 1:
 
     # End of for SatLabel, SatPrepro in PreproObsInfo.items():
+
+    # FINAL RESIDUALS AND ENT-GPS OFFSET
+    # -------------------------------------------------------
+    # Compute the final residuals by substracting the guess of the receiver clock
+    # Compute the ENT to GPS time offset
+
+    # Check that there are at least one monitored satellite at current epoch
+    if EntGpsN > 0:
+        # Compute ENT-GPS offset
+        SatCorrInfo["EntGps"] = EntGpsSum/EntGpsN
+        # Compute the final residuals
+        RcvrClock = ResSum/ResN
+        for SatLabel, SatCorrInfo in CorrInfo.items():
+            # Compute the final residuals
+            SatCorrInfo["PsrResidual"] = SatCorrInfo["PsrResidual"] - RcvrClock
 
     return CorrInfo
