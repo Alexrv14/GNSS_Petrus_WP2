@@ -183,7 +183,7 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                 "Azimuth": 0.0,         # Azimuth
                 "IppLon": 0.0,          # IPP Longitude
                 "IppLat": 0.0,          # IPP Latitude
-                "Flag": 1,              # 0: Not Used 1: Used for PA 2: Used for NPA
+                "Flag": 0,              # 0: Not Used 1: Used for PA 2: Used for NPA
                 "SatX": 0.0,            # X-Component of the Satellite Position corrected with SBAS LTC
                 "SatY": 0.0,            # Y-Component of the Satellite Position corrected with SBAS LTC
                 "SatZ": 0.0,            # Z-Component of the Satellite Position corrected with SBAS LTC
@@ -365,12 +365,12 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
     # Check that there are at least one monitored satellite at current epoch
     if EntGpsN > 0:
-        # Compute ENT-GPS offset
-        SatCorrInfo["EntGps"] = EntGpsSum/EntGpsN
-        # Compute the final residuals
-        RcvrClock = ResSum/ResN
         for SatLabel, SatCorrInfo in CorrInfo.items():
+            # Compute ENT-GPS offset
+            SatCorrInfo["EntGps"] = EntGpsSum/EntGpsN
             # Compute the final residuals
-            SatCorrInfo["PsrResidual"] = SatCorrInfo["PsrResidual"] - RcvrClock
+            SatCorrInfo["RcvrClk"] = ResSum/ResN
+            # Compute the final residuals
+            SatCorrInfo["PsrResidual"] = SatCorrInfo["PsrResidual"] - SatCorrInfo["RcvrClk"]
 
     return CorrInfo
