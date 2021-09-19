@@ -129,16 +129,14 @@ def plotLtcCorr(CorrFile, CorrData, SatData):
     PlotConf["Legend"] = ["ENTtoGPS","LTC-X","LTC-Y","LTC-Z","LTC-B","FC"]
 
     PlotConf["Marker"] = '.'
-    PlotConf["LineWidth"] = 0.75
+    PlotConf["LineWidth"] = 1.5
 
     # Plotting
-    PlotConf["xData"], PlotConf["xData2"] = {}, {}
-    PlotConf["yData"], PlotConf["yData2"] = {}, {}
+    PlotConf["xData"] = {}
+    PlotConf["yData"] = {}
     FilterCond = CorrData[CorrIdx["FLAG"]] == 1
     for Label in PlotConf["Legend"]:
         if Label == "ENTtoGPS":
-            PlotConf["Marker"] = '_'
-            PlotConf["LineWidth"] = 1.0
             PlotConf["xData"][Label] = CorrData[CorrIdx["SOD"]][FilterCond] / GnssConstants.S_IN_H
             PlotConf["yData"][Label] = CorrData[CorrIdx[Label]][FilterCond]
         else:
@@ -620,6 +618,78 @@ def plotSigmaUere(CorrFile, CorrData):
     # Call generatePlot from Plots library
     generatePlot(PlotConf)
 
+# Plot Receiver Clock
+def plotRcvrClock(CorrFile, CorrData):
+
+    # Graph settings definition
+    PlotConf = {}
+    initPlot(CorrFile, PlotConf, "Receiver Clock", "RCVR_CLOCK_vs_TIME")
+
+    PlotConf["Type"] = "Lines"
+    PlotConf["FigSize"] = (8.4,7.6)
+
+    PlotConf["yLabel"] = "Receiver Clock [m]"
+
+    PlotConf["xTicks"] = range(0,25)
+    PlotConf["xLim"] = [0,24]
+
+    PlotConf["Grid"] = True
+
+    PlotConf["Marker"] = '+'
+    PlotConf["LineWidth"] = 0.75
+
+    # Plotting
+    PlotConf["xData"] = {}
+    PlotConf["yData"] = {}
+    FilterCond = CorrData[CorrIdx["FLAG"]] == 1
+    Label = 0
+    PlotConf["xData"][Label] = CorrData[CorrIdx["SOD"]][FilterCond] / GnssConstants.S_IN_H
+    PlotConf["yData"][Label] = CorrData[CorrIdx["RCVR-CLK"]][FilterCond]
+
+    # Call generatePlot from Plots library
+    generatePlot(PlotConf)
+
+# Plot Pseudo-Range Residuals
+def plotRes(CorrFile, CorrData):
+
+    # Graph settings definition
+    PlotConf = {}
+    initPlot(CorrFile, PlotConf, "Pseudo-Range Residuals", "RES_vs_TIME")
+
+    PlotConf["Type"] = "Lines"
+    PlotConf["FigSize"] = (8.4,7.6)
+
+    PlotConf["yLabel"] = "Pseudo-Range Residuals [m]"
+
+    PlotConf["xTicks"] = range(0,25)
+    PlotConf["xLim"] = [0,24]
+
+    PlotConf["Grid"] = True
+
+    PlotConf["Marker"] = '+'
+    PlotConf["LineWidth"] = 0.75
+
+    # Colorbar definition
+    PrnList = sorted(unique(CorrData[CorrIdx["PRN"]]))
+    PlotConf["ColorBar"] = "gnuplot"
+    PlotConf["ColorBarLabel"] = "GPS-PRN"
+    PlotConf["ColorBarMin"] = min(PrnList)
+    PlotConf["ColorBarMax"] = max(PrnList)
+    PlotConf["ColorBarTicks"] = range(min(PrnList), max(PrnList) + 1)
+
+    # Plotting
+    PlotConf["xData"] = {}
+    PlotConf["yData"] = {}
+    PlotConf["zData"] = {}
+    FilterCond = CorrData[CorrIdx["FLAG"]] == 1
+    Label = 0
+    PlotConf["xData"][Label] = CorrData[CorrIdx["SOD"]][FilterCond] / GnssConstants.S_IN_H
+    PlotConf["yData"][Label] = CorrData[CorrIdx["PSR-RES"]][FilterCond]
+    PlotConf["zData"][Label] = CorrData[CorrIdx["PRN"]][FilterCond]
+
+    # Call generatePlot from Plots library
+    generatePlot(PlotConf)
+
 def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
     
     # Purpose: generate output plots regarding Preprocessing results
@@ -657,7 +727,7 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
         usecols=[SatIdx["SOD"],SatIdx["LTC-X"],SatIdx["LTC-Y"],SatIdx["LTC-Z"],SatIdx["LTC-B"],SatIdx["FC"]])
 
         # Read the cols we need from CorrFile file
-        CorrData = read_csv(SatFile, delim_whitespace=True, skiprows=1, header=None,\
+        CorrData = read_csv(CorrFile, delim_whitespace=True, skiprows=1, header=None,\
         usecols=[CorrIdx["SOD"],CorrIdx["ENTtoGPS"],CorrIdx["FLAG"]])
 
         print( 'Plot LTC corrections vs Time ...')
@@ -796,3 +866,27 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
       
         # Configure plot and call plot generation function
         plotSigmaUere(CorrFile, CorrData)
+    
+    # Receiver Clock
+    # ----------------------------------------------------------
+    if(ConfPlots["PLOT_RCVR_CLK"] == 1):
+        # Read the cols we need from CorrFile file
+        CorrData = read_csv(CorrFile, delim_whitespace=True, skiprows=1, header=None,\
+        usecols=[CorrIdx["SOD"],CorrIdx["RCVR-CLK"],CorrIdx["FLAG"]])
+
+        print( 'Plot Receiver Clock vs Time ...')
+      
+        # Configure plot and call plot generation function
+        plotRcvrClock(CorrFile, CorrData)
+    
+    # Residuals
+    # ----------------------------------------------------------
+    if(ConfPlots["PLOT_RES"] == 1):
+        # Read the cols we need from CorrFile file
+        CorrData = read_csv(CorrFile, delim_whitespace=True, skiprows=1, header=None,\
+        usecols=[CorrIdx["SOD"],CorrIdx["PRN"],CorrIdx["PSR-RES"],CorrIdx["FLAG"]])
+
+        print( 'Plot Pseudo-Range Residuals vs Time ...')
+      
+        # Configure plot and call plot generation function
+        plotRes(CorrFile, CorrData)
