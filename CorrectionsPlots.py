@@ -50,12 +50,30 @@ def initPlot(CorrFile, PlotConf, Title, Label):
     PlotConf["Path"] = sys.argv[1] + '/OUT/CORR/Figures/%s/' % Label + \
         '%s_%s_Y%sD%s.png' % (Label, Rcvr, Year, Doy)
 
+def initPlotB(CorrFile, PlotConf, Title, Label):
+    
+    # Compute information from PreproObsFile
+    CorrFileName = os.path.basename(CorrFile)
+    CorrFileNameSplit = CorrFileName.split('_')
+    Rcvr = CorrFileNameSplit[1]
+    DatepDat = CorrFileNameSplit[2]
+    Date = DatepDat.split('.')[0]
+    Year = Date[1:3]
+    Doy = Date[4:]
+
+    # Dump information into PlotConf
+    PlotConf["Title"] = "%s from %s on Year %s"\
+        " DoY %s" % (Title, Rcvr, Year, Doy)
+
+    PlotConf["Path"] = sys.argv[1] + '/OUT/CORR/Figures/%s/' % Label + \
+        '%s_%s_Y%sD%s.png' % (Label, Rcvr, Year, Doy)
+
 # Plot Monitored Satellite Tracks
 def plotSatTracks(CorrFile, CorrData):
 
     # Graph settings definition
     PlotConf = {}
-    initPlot(CorrFile, PlotConf, "Monitored Satellites Tracks", "SATS_TRACKS_vs_TIME")
+    initPlotB(CorrFile, PlotConf, "Monitored Satellites Tracks", "SATS_TRACKS_vs_TIME")
 
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)
@@ -364,7 +382,7 @@ def plotStd(CorrFile, CorrData):
 
     # Graph settings definition
     PlotConf = {}
-    initPlot(CorrFile, PlotConf, "STD", "STD_at_IPP")
+    initPlotB(CorrFile, PlotConf, "STD", "STD_at_RCVR")
 
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)

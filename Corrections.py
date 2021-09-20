@@ -28,7 +28,7 @@ from collections import OrderedDict
 from COMMON import GnssConstants as Const
 from COMMON import Iono, Tropo
 from InputOutput import RcvrIdx, SatIdx, LosIdx
-from math import sqrt, exp
+from math import sqrt, exp, cos, pi
 import numpy as np
 
 def IonoIGPs(Index, LosInfo):
@@ -67,12 +67,8 @@ def IonoInterpolation(LosInfo):
     # Function cpmputing the UIVD and the sigma UIRE for each line of sight (IPP) by interpolating the values 
     # of the surrounding active IGPs
 
-    # Internal keys definition
-    LON = 0
-    LAT = 1
-    GIVD = 2
-    GIVE = 3
-    WEIGHT = 4
+    # Internal indexes definition
+    InterIdx = {"LON": 0, "LAT": 1, "GIVD": 2, "GIVE": 3, "WEIGHT": 4}
 
     # Internal parameters definition
     Index = int(LosInfo[LosIdx["INTERP"]])
@@ -85,8 +81,8 @@ def IonoInterpolation(LosInfo):
     # Compute the weights for the interpolation (all IPPs between parallels N85 and S85)
     # Rectangular interpolation
     if Index == 0:           
-        xpp = (IppLong - ActIgps["3"][LON])/(ActIgps["1"][LON] - ActIgps["3"][LON])
-        ypp = (IppLat - ActIgps["3"][LAT])/(ActIgps["1"][LAT] - ActIgps["3"][LAT])
+        xpp = (IppLong - ActIgps["3"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["3"][InterIdx["LON"]])
+        ypp = (IppLat - ActIgps["3"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["3"][InterIdx["LAT"]])
         # Add the weights to ActIgps dictionary
         ActIgps["1"].append(xpp*ypp)
         ActIgps["2"].append((1-xpp)*ypp)
@@ -95,11 +91,11 @@ def IonoInterpolation(LosInfo):
     # Triangular interpolation
     elif Index > 0: 
         if Index % 2 == 0:
-            xpp = (IppLong - ActIgps["2"][LON])/(ActIgps["1"][LON] - ActIgps["2"][LON])
-            ypp = (IppLat - ActIgps["2"][LAT])/(ActIgps["3"][LAT] - ActIgps["2"][LAT])
+            xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
+            ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["3"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
         else:
-            xpp = (IppLong - ActIgps["2"][LON])/(ActIgps["3"][LON] - ActIgps["2"][LON])
-            ypp = (IppLat - ActIgps["2"][LAT])/(ActIgps["1"][LAT] - ActIgps["2"][LAT])
+            xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["3"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
+            ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
         # Add the weights to ActIgps dictionary
         ActIgps["1"].append(ypp)
         ActIgps["2"].append(1-xpp-ypp)
@@ -108,15 +104,75 @@ def IonoInterpolation(LosInfo):
     # Compute UIVD at the IP
     UIVD = 0
     for i in range(1, len(ActIgps) + 1):
-        UIVD = UIVD + ActIgps[str(i)][WEIGHT]*ActIgps[str(i)][GIVD]
+        UIVD = UIVD + ActIgps[str(i)][InterIdx["WEIGHT"]]*ActIgps[str(i)][InterIdx["GIVD"]]
 
     # Compute sigma UIRE
     UIVE2 = 0
     for i in range(1, len(ActIgps) + 1):
-        UIVE2 = UIVE2 + ActIgps[str(i)][WEIGHT]*ActIgps[str(i)][GIVE]**2
+        UIVE2 = UIVE2 + ActIgps[str(i)][InterIdx["WEIGHT"]]*ActIgps[str(i)][InterIdx["GIVE"]]**2
     UIVE = sqrt(UIVE2)
 
     return UIVD, UIVE
+
+def TropoInterpolation(RcvrInfo, Doy):
+
+    # Function cpmputing the STD for each line of sight by interpolating from MOPS values 
+
+    # Internal indexes definition
+    InterIdx = {"PPar": 0, "TPar": 1, "ePar": 2, "BetaPar": 3, "LambdaPar": 4}
+    InterKey = {"Average": 0, "Variation": 1}
+
+    # Meteorological data as a function of latitude
+    MeteoParam = OrderedDict({})
+    MeteoParam[15.0] = [[1013.25, 0.0], [299.65, 0.0], [26.31, 0.0], [6.3e-3, 0.0], [2.77, 0.0]]
+    MeteoParam[30.0] = [[1017.25, -3.75], [294.15, 7.0], [21.79, 8.85], [6.05e-3, 0.25e-3], [3.15, 0.33]]
+    MeteoParam[45.0] = [[1015.75, -2.25], [283.15, 11.0], [11.66, 7.24], [5.58e-3, 0.32e-3], [2.57, 0.46]]
+    MeteoParam[60.0] = [[1011.75, -1.75], [272.15, 15.0], [6.78, 5.36], [5.39e-3, 0.81e-3], [1.81, 0.74]]
+    MeteoParam[75.0] = [[1013.00, -0.50], [263.65, 14.5], [4.11, 3.39], [4.53e-3, 0.62e-3], [1.55, 0.3]]
+
+    # Obtain local meteorological parameters around the receiver
+    RcvrMeteoParam = []
+    PrevLat = 15.0
+    for Lat in MeteoParam.keys():
+        if float(RcvrInfo[RcvrIdx["LAT"]]) <= 15.0:
+            RcvrMeteoParam = MeteoParam[15.0]
+            break
+        elif float(RcvrInfo[RcvrIdx["LAT"]]) >= 75.0:
+            RcvrMeteoParam = MeteoParam[75.0]
+            break
+        elif float(RcvrInfo[RcvrIdx["LAT"]]) < Lat:
+            for Idx in InterIdx.values():
+                Parameters = []
+                for Key in InterKey.values():
+                    Parameters.append(MeteoParam[PrevLat][Idx][Key] + (MeteoParam[Lat][Idx][Key] - MeteoParam[PrevLat][Idx][Key]) * \
+                        ((float(RcvrInfo[RcvrIdx["LAT"]]) - PrevLat)/(Lat-PrevLat)))
+                RcvrMeteoParam.append(Parameters)
+            break
+        else:
+            PrevLat = Lat
+    
+    # Compute meteorological parameters around the receiver (for northen latitudes)
+    RcvrP = RcvrMeteoParam[InterIdx["PPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["PPar"]][InterKey["Variation"]] * \
+        cos(2*pi*(Doy - 28)/365.25)
+    RcvrT = RcvrMeteoParam[InterIdx["TPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["TPar"]][InterKey["Variation"]] * \
+        cos(2*pi*(Doy - 28)/365.25)
+    Rcvre = RcvrMeteoParam[InterIdx["ePar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["ePar"]][InterKey["Variation"]] * \
+        cos(2*pi*(Doy - 28)/365.25)
+    RcvrB = RcvrMeteoParam[InterIdx["BetaPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["BetaPar"]][InterKey["Variation"]] * \
+        cos(2*pi*(Doy - 28)/365.25)
+    RcvrL = RcvrMeteoParam[InterIdx["LambdaPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["LambdaPar"]][InterKey["Variation"]] * \
+        cos(2*pi*(Doy - 28)/365.25)
+
+    # Compute zero-altitude zenith delays
+    Zhyd = 1e-6*((77.604*287.054)/9.784)*RcvrP
+    Zwet = 1e-6*((382000*287.054)/(9.784*(RcvrL + 1) - RcvrB*287.054))*(Rcvre/RcvrT)
+
+    # Compute dry and wet tropo delays
+    Dhyd = Zhyd*(1-(RcvrB*float(RcvrInfo[RcvrIdx["ALT"]])/RcvrT))**(9.80665/(287.054*RcvrB))
+    Dwet = Zwet*(1-(RcvrB*float(RcvrInfo[RcvrIdx["ALT"]])/RcvrT))**((((RcvrL + 1)*9.80665)/(287.054*RcvrB))-1)
+    ZTD = Dhyd + Dwet
+
+    return ZTD    
 
 def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
 
@@ -282,10 +338,11 @@ def runCorrectMeas(Conf, Rcvr, PreproObsInfo, SatInfo, LosInfo):
                     # Compute corrected Slant Tropospheric Delay STD, as well as the Sigma TROPO according to MOPS
 
                     # Compute the STD
-                    SatCorrInfo["Std"] = float(LosInfo[SatLabel][LosIdx["STD"]])
+                    Tpp = Tropo.computeTropoMappingFunction(SatCorrInfo["Elevation"])
+                    SatCorrInfo["Std"] = TropoInterpolation(Rcvr, SatCorrInfo["Doy"])*Tpp
+                    # SatCorrInfo["Std"] = float(LosInfo[SatLabel][LosIdx["STD"]])
 
                     # Compute the Sigma Tropo
-                    Tpp = Tropo.computeTropoMappingFunction(SatCorrInfo["Elevation"])
                     SatCorrInfo["SigmaTropo"] = 0.12*Tpp
 
                     # USER AIRBORNE SIGMA
