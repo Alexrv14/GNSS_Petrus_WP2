@@ -78,25 +78,39 @@ def IonoInterpolation(LosInfo):
     # Obtain active IGPs for the interpolation
     ActIgps = IonoIGPs(Index, LosInfo)
 
-    # Compute the weights for the interpolation (all IPPs between parallels N85 and S85)
+    # Compute the weights for the interpolation
     # Rectangular interpolation
-    if Index == 0:           
-        xpp = (IppLong - ActIgps["3"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["3"][InterIdx["LON"]])
-        ypp = (IppLat - ActIgps["3"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["3"][InterIdx["LAT"]])
-        # Add the weights to ActIgps dictionary
+    if Index == 0:
+        if abs(IppLat) < 85.0:
+            # IPPs between parallels N85 and S85         
+            xpp = (IppLong - ActIgps["3"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["3"][InterIdx["LON"]])
+            ypp = (IppLat - ActIgps["3"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["3"][InterIdx["LAT"]])
+        else:
+            # IPPs north of N85 or south of S85
+            ypp = (abs(IppLat) - 85.0)/10
+            xpp = ((IppLong - ActIgps["3"][InterIdx["LON"]])/90)*(1 - 2*ypp) + ypp
+        # Append the weights to ActIgps dictionary
         ActIgps["1"].append(xpp*ypp)
         ActIgps["2"].append((1-xpp)*ypp)
         ActIgps["3"].append((1-xpp)*(1-ypp))
         ActIgps["4"].append(xpp*(1-ypp))
+
     # Triangular interpolation
     elif Index > 0: 
-        if Index % 2 == 0:
-            xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
-            ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["3"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
+        if abs(IppLat) < 85.0:
+            # IPPs between parallels N85 and S85
+            if Index % 2 == 0:
+                xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["1"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
+                ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["3"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
+            else:
+                xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["3"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
+                ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
         else:
-            xpp = (IppLong - ActIgps["2"][InterIdx["LON"]])/(ActIgps["3"][InterIdx["LON"]] - ActIgps["2"][InterIdx["LON"]])
-            ypp = (IppLat - ActIgps["2"][InterIdx["LAT"]])/(ActIgps["1"][InterIdx["LAT"]] - ActIgps["2"][InterIdx["LAT"]])
-        # Add the weights to ActIgps dictionary
+            # IPPs north of N85 or south of S85
+            LambdaWest = [ActIgps["1"][InterIdx["LON"]], ActIgps["3"][InterIdx["LON"]]]
+            ypp = (abs(IppLat) - 85.0)/10
+            xpp = ((IppLong - min(LambdaWest))/90)*(1 - 2*ypp) + ypp
+        # Append the weights to ActIgps dictionary
         ActIgps["1"].append(ypp)
         ActIgps["2"].append(1-xpp-ypp)
         ActIgps["3"].append(xpp)
@@ -116,7 +130,7 @@ def IonoInterpolation(LosInfo):
 
 def TropoInterpolation(RcvrInfo, Doy):
 
-    # Function cpmputing the STD for each line of sight by interpolating from MOPS values 
+    # Function computing the STD for each line of sight by interpolating from MOPS values 
 
     # Internal indexes definition
     InterIdx = {"PPar": 0, "TPar": 1, "ePar": 2, "BetaPar": 3, "LambdaPar": 4}
