@@ -22,7 +22,7 @@ from math import sqrt
 import sys, os
 from pandas import unique
 from pandas import read_csv
-from InputOutput import CorrIdx, SatIdx
+from InputOutput import CorrIdx, SatIdx, RcvrIdx
 sys.path.append(os.getcwd() + '/' + \
     os.path.dirname(sys.argv[0]) + '/' + 'COMMON')
 from COMMON import GnssConstants, Iono
@@ -70,8 +70,28 @@ def initPlotB(CorrFile, PlotConf, Title, Label):
     PlotConf["Path"] = sys.argv[1] + '/OUT/CORR/Figures/%s/' % Label + \
         '%s_%s_Y%sD%s.png' % (Label, Rcvr, Year, Doy)
 
+def roundRcvr(RcvrInfo):
+
+    # Function rounding the position of the receiver
+
+    Lon = int(RcvrInfo[RcvrIdx["LON"]]) // 5 
+    Lat = int(RcvrInfo[RcvrIdx["LAT"]]) // 5
+
+    # Compute rounded longitude
+    if (int(RcvrInfo[RcvrIdx["LON"]]) % 5) > 2:
+        RcvrLon = 5*Lon + 5
+    else:
+        RcvrLon = 5*Lon
+    # Compute rounded latitude
+    if (int(RcvrInfo[RcvrIdx["LAT"]]) % 5) > 2:
+        RcvrLat = 5*Lat + 5
+    else:
+        RcvrLat = 5*Lat
+
+    return RcvrLon, RcvrLat
+
 # Plot Monitored Satellite Tracks
-def plotSatTracks(CorrFile, CorrData):
+def plotSatTracks(CorrFile, CorrData, RcvrInfo):
 
     # Graph settings definition
     PlotConf = {}
@@ -80,10 +100,17 @@ def plotSatTracks(CorrFile, CorrData):
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)
 
-    PlotConf["LonMin"] = -115
-    PlotConf["LonMax"] = 125
-    PlotConf["LatMin"] = -35
-    PlotConf["LatMax"] = 65
+    RcvrLon, RcvrLat = roundRcvr(RcvrInfo)
+    if RcvrLat > 55:
+        PlotConf["LonMin"] = -180
+        PlotConf["LonMax"] = 180
+        PlotConf["LatMin"] = (RcvrLat - 70)
+        PlotConf["LatMax"] = (RcvrLat + 10) if RcvrLat < 80 else 90
+    else:
+        PlotConf["LonMin"] = (RcvrLon - 115) 
+        PlotConf["LonMax"] = (RcvrLon + 115) 
+        PlotConf["LatMin"] = (RcvrLat - 70)
+        PlotConf["LatMax"] = (RcvrLat + 35) if RcvrLat < 55 else 90
     PlotConf["LonStep"] = 15
     PlotConf["LatStep"] = 10
 
@@ -289,19 +316,20 @@ def plotUivd(CorrFile, CorrData):
     generatePlot(PlotConf)
 
 # Plot UISD
-def plotUisd(CorrFile, CorrData):
+def plotUisd(CorrFile, CorrData, RcvrInfo):
 
     # Graph settings definition
     PlotConf = {}
-    initPlot(CorrFile, PlotConf, "UISD", "UISD_at_IPP")
+    initPlotB(CorrFile, PlotConf, "UISD", "UISD_at_IPP")
 
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)
 
-    PlotConf["LonMin"] = -20
-    PlotConf["LonMax"] = 25
-    PlotConf["LatMin"] = 25
-    PlotConf["LatMax"] = 60
+    RcvrLon, RcvrLat = roundRcvr(RcvrInfo)
+    PlotConf["LonMin"] = (RcvrLon - 25)
+    PlotConf["LonMax"] = (RcvrLon + 25)
+    PlotConf["LatMin"] = (RcvrLat - 15)
+    PlotConf["LatMax"] = (RcvrLat + 15) if RcvrLat < 75 else 90
     PlotConf["LonStep"] = 5
     PlotConf["LatStep"] = 5
 
@@ -380,7 +408,7 @@ def plotSigmaUire(CorrFile, CorrData):
     generatePlot(PlotConf)
 
 # Plot STD
-def plotStd(CorrFile, CorrData):
+def plotStd(CorrFile, CorrData, RcvrInfo):
 
     # Graph settings definition
     PlotConf = {}
@@ -389,10 +417,11 @@ def plotStd(CorrFile, CorrData):
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)
 
-    PlotConf["LonMin"] = -20
-    PlotConf["LonMax"] = 25
-    PlotConf["LatMin"] = 25
-    PlotConf["LatMax"] = 60
+    RcvrLon, RcvrLat = roundRcvr(RcvrInfo)
+    PlotConf["LonMin"] = (RcvrLon - 25)
+    PlotConf["LonMax"] = (RcvrLon + 25)
+    PlotConf["LatMin"] = (RcvrLat - 15)
+    PlotConf["LatMax"] = (RcvrLat + 15) if RcvrLat < 75 else 90
     PlotConf["LonStep"] = 5
     PlotConf["LatStep"] = 5
 
@@ -721,8 +750,8 @@ def plotSigmaUereStats(CorrFile, CorrData):
     PlotConf["FigSize"] = (14.4,8.4)
 
     PlotConf["yLabel"] = "Sigma UERE [m]"
-
-    PlotConf["xLim"] = [0.5,31.5]
+    
+    PlotConf["xLim"] = [0.5,32.5]
 
     PlotConf["Grid"] = True
     PlotConf["Legend"] = ["Max", "95%", "RMS", "Min"]
@@ -737,22 +766,28 @@ def plotSigmaUereStats(CorrFile, CorrData):
 
     FilterCond1 = CorrData[CorrIdx["FLAG"]] == 1
     # Loop over all satellites
-    PrnList = sorted(unique(CorrData[CorrIdx["PRN"]]))
-    for Prn in PrnList:
+    for Prn in range(1,33,1):
         FilterCond2 = CorrData[CorrIdx["PRN"]] == Prn
         SigmaUereSat = CorrData[CorrIdx["SUERE"]][FilterCond2][FilterCond1].to_numpy()
-        # Compute maximum Sigma UERE
-        MaxUere.append(max(SigmaUereSat))
-        # Compute minimum sigma UERE
-        MinUere.append(min(SigmaUereSat))
-        # Compute RMS 
-        NSigma = 0
-        for Sigma in SigmaUereSat:
-            NSigma = NSigma + Sigma**2
-        RMSUere.append(sqrt(NSigma/len(SigmaUereSat)))
-        # Compute 95% confidence interval for Sigma UERE
-        ConfInter = np.percentile(SigmaUereSat, 95)
-        ConUere.append(ConfInter)
+        # Check if the satellite is in view
+        if len(SigmaUereSat) > 0:
+            # Compute maximum Sigma UERE
+            MaxUere.append(max(SigmaUereSat))
+            # Compute minimum sigma UERE
+            MinUere.append(min(SigmaUereSat))
+            # Compute RMS 
+            NSigma = 0
+            for Sigma in SigmaUereSat:
+                NSigma = NSigma + Sigma**2
+            RMSUere.append(sqrt(NSigma/len(SigmaUereSat)))
+            # Compute 95% confidence interval for Sigma UERE
+            ConfInter = np.percentile(SigmaUereSat, 95)
+            ConUere.append(ConfInter)
+        else:
+            MaxUere.append(0.0)
+            MinUere.append(0.0)
+            RMSUere.append(0.0)
+            ConUere.append(0.0)
 
     PlotData = OrderedDict({})
     PlotData["Max"] = np.around(MaxUere, decimals = 2)
@@ -765,7 +800,7 @@ def plotSigmaUereStats(CorrFile, CorrData):
     PlotConf["yData"] = {}
     Labels = ["Max", "95%", "RMS", "Min"]
     for Label in Labels:
-        PlotConf["xData"][Label] = np.arange(min(PrnList),max(PrnList),1)
+        PlotConf["xData"][Label] = np.arange(1,33,1)
         PlotConf["yData"][Label] = PlotData[Label]
 
     # Call generatePlot from Plots library
@@ -798,7 +833,7 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
         print( 'Plot Monitored Satellites Tracks vs Time ...')
       
         # Configure plot and call plot generation function
-        plotSatTracks(CorrFile, CorrData)
+        plotSatTracks(CorrFile, CorrData, RcvrInfo)
 
     # LTC Corrections
     # ----------------------------------------------------------
@@ -862,7 +897,7 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
         print( 'Plot UISD vs Time ...')
       
         # Configure plot and call plot generation function
-        plotUisd(CorrFile, CorrData)
+        plotUisd(CorrFile, CorrData, RcvrInfo)
 
     # Sigma UIRE
     # ----------------------------------------------------------
@@ -886,7 +921,7 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
         print( 'Plot STD vs Time ...')
       
         # Configure plot and call plot generation function
-        plotStd(CorrFile, CorrData)
+        plotStd(CorrFile, CorrData, RcvrInfo)
     
     # Sigma TROPO
     # ----------------------------------------------------------
