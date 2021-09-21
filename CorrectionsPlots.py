@@ -710,7 +710,7 @@ def plotRes(CorrFile, CorrData):
     # Call generatePlot from Plots library
     generatePlot(PlotConf)
 
-# Plot Sigma UERE
+# Plot Sigma UERE Statistics
 def plotSigmaUereStats(CorrFile, CorrData):
 
     # Graph settings definition

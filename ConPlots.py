@@ -23,21 +23,21 @@ from collections import OrderedDict
 
 # Plots configuration flags
 ConfPlots = OrderedDict({})
-ConfPlots["PLOT_SAT_TRACKS"] = 0
-ConfPlots["PLOT_LTC"] = 0
-ConfPlots["PLOT_ENT_GPS"] = 0
-ConfPlots["PLOT_SIGMA_FLT"] = 0
-ConfPlots["PLOT_UIVD"] = 0
-ConfPlots["PLOT_UISD"] = 0
-ConfPlots["PLOT_SIGMA_UIRE"] = 0
-ConfPlots["PLOT_STD"] = 0
-ConfPlots["PLOT_SIGMA_TROPO"] = 0
-ConfPlots["PLOT_SIGMA_MULTI"] = 0
-ConfPlots["PLOT_SIGMA_NOISE"] = 0
-ConfPlots["PLOT_SIGMA_AIR"] = 0
-ConfPlots["PLOT_SIGMA_UERE"] = 0
-ConfPlots["PLOT_SIGMA_UERE_STAT"] = 0
-ConfPlots["PLOT_RCVR_CLK"] = 0
-ConfPlots["PLOT_RES"] = 0
+ConfPlots["PLOT_SAT_TRACKS"] = 1
+ConfPlots["PLOT_LTC"] = 1
+ConfPlots["PLOT_ENT_GPS"] = 1
+ConfPlots["PLOT_SIGMA_FLT"] = 1
+ConfPlots["PLOT_UIVD"] = 1
+ConfPlots["PLOT_UISD"] = 1
+ConfPlots["PLOT_SIGMA_UIRE"] = 1
+ConfPlots["PLOT_STD"] = 1
+ConfPlots["PLOT_SIGMA_TROPO"] = 1
+ConfPlots["PLOT_SIGMA_MULTI"] = 1
+ConfPlots["PLOT_SIGMA_NOISE"] = 1
+ConfPlots["PLOT_SIGMA_AIR"] = 1
+ConfPlots["PLOT_SIGMA_UERE"] = 1
+ConfPlots["PLOT_SIGMA_UERE_STAT"] = 1
+ConfPlots["PLOT_RCVR_CLK"] = 1
+ConfPlots["PLOT_RES"] = 1
 ConfPlots["PLOT_SIGMA_UERE_STATS"] = 1
 
