@@ -17,6 +17,8 @@
 #
 ########################################################################
 
+from collections import OrderedDict
+from math import sqrt
 import sys, os
 from pandas import unique
 from pandas import read_csv
@@ -594,7 +596,7 @@ def plotSigmaAir(CorrFile, CorrData):
     # Call generatePlot from Plots library
     generatePlot(PlotConf)
 
-# Plot Sigma Airborne
+# Plot Sigma UERE
 def plotSigmaUere(CorrFile, CorrData):
 
     # Graph settings definition
@@ -704,6 +706,67 @@ def plotRes(CorrFile, CorrData):
     PlotConf["xData"][Label] = CorrData[CorrIdx["SOD"]][FilterCond] / GnssConstants.S_IN_H
     PlotConf["yData"][Label] = CorrData[CorrIdx["PSR-RES"]][FilterCond]
     PlotConf["zData"][Label] = CorrData[CorrIdx["PRN"]][FilterCond]
+
+    # Call generatePlot from Plots library
+    generatePlot(PlotConf)
+
+# Plot Sigma UERE
+def plotSigmaUereStats(CorrFile, CorrData):
+
+    # Graph settings definition
+    PlotConf = {}
+    initPlotB(CorrFile, PlotConf, "Sigma UERE Statistics", "SIGMA_UERE_STATS")
+
+    PlotConf["Type"] = "Bars"
+    PlotConf["FigSize"] = (14.4,8.4)
+
+    PlotConf["yLabel"] = "Sigma UERE [m]"
+
+    PlotConf["xLim"] = [0.5,31.5]
+
+    PlotConf["Grid"] = True
+    PlotConf["Legend"] = ["Max", "95%", "RMS", "Min"]
+
+    PlotConf["BarWidth"] = 0.5
+
+    # Prepare data to be plotted
+    MaxUere = []
+    MinUere = []
+    RMSUere = []
+    ConUere = []
+
+    FilterCond1 = CorrData[CorrIdx["FLAG"]] == 1
+    # Loop over all satellites
+    PrnList = sorted(unique(CorrData[CorrIdx["PRN"]]))
+    for Prn in PrnList:
+        FilterCond2 = CorrData[CorrIdx["PRN"]] == Prn
+        SigmaUereSat = CorrData[CorrIdx["SUERE"]][FilterCond2][FilterCond1].to_numpy()
+        # Compute maximum Sigma UERE
+        MaxUere.append(max(SigmaUereSat))
+        # Compute minimum sigma UERE
+        MinUere.append(min(SigmaUereSat))
+        # Compute RMS 
+        NSigma = 0
+        for Sigma in SigmaUereSat:
+            NSigma = NSigma + Sigma**2
+        RMSUere.append(sqrt(NSigma/len(SigmaUereSat)))
+        # Compute 95% confidence interval for Sigma UERE
+        ConfInter = np.percentile(SigmaUereSat, 95)
+        ConUere.append(ConfInter)
+
+    PlotData = OrderedDict({})
+    PlotData["Max"] = np.around(MaxUere, decimals = 2)
+    PlotData["Min"] = np.around(MinUere, decimals = 2)
+    PlotData["RMS"] = np.around(RMSUere, decimals = 2)
+    PlotData["95%"] = np.around(ConUere, decimals = 2)
+
+    # Plotting
+    PlotConf["xData"] = {}
+    PlotConf["yData"] = {}
+    Labels = ["Max", "95%", "RMS", "Min"]
+    for Label in Labels:
+        PlotConf["xData"][Label] = np.arange(min(PrnList),max(PrnList),1)
+        PlotConf["yData"][Label] = PlotData[Label]
 
     # Call generatePlot from Plots library
     generatePlot(PlotConf)
@@ -908,3 +971,15 @@ def generateCorrPlots(CorrFile, SatFile, RcvrInfo):
       
         # Configure plot and call plot generation function
         plotRes(CorrFile, CorrData)
+    
+    # Sigma UERE Statistics
+    # ----------------------------------------------------------
+    if(ConfPlots["PLOT_SIGMA_UERE_STATS"]  == 1):
+        # Read the cols we need from CorrFile file
+        CorrData = read_csv(CorrFile, delim_whitespace=True, skiprows=1, header=None,\
+        usecols=[CorrIdx["PRN"],CorrIdx["SUERE"],CorrIdx["FLAG"]])
+
+        print( 'Plot Sigma UERE Statistics ...')
+      
+        # Configure plot and call plot generation function
+        plotSigmaUereStats(CorrFile, CorrData)

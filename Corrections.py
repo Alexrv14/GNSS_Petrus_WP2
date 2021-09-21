@@ -148,34 +148,41 @@ def TropoInterpolation(RcvrInfo, Doy):
     RcvrMeteoParam = []
     PrevLat = 15.0
     for Lat in MeteoParam.keys():
-        if float(RcvrInfo[RcvrIdx["LAT"]]) <= 15.0:
+        if abs(float(RcvrInfo[RcvrIdx["LAT"]])) <= 15.0:
             RcvrMeteoParam = MeteoParam[15.0]
             break
-        elif float(RcvrInfo[RcvrIdx["LAT"]]) >= 75.0:
+        elif abs(float(RcvrInfo[RcvrIdx["LAT"]])) >= 75.0:
             RcvrMeteoParam = MeteoParam[75.0]
             break
-        elif float(RcvrInfo[RcvrIdx["LAT"]]) < Lat:
+        elif abs(float(RcvrInfo[RcvrIdx["LAT"]])) < Lat:
             for Idx in InterIdx.values():
                 Parameters = []
                 for Key in InterKey.values():
                     Parameters.append(MeteoParam[PrevLat][Idx][Key] + (MeteoParam[Lat][Idx][Key] - MeteoParam[PrevLat][Idx][Key]) * \
-                        ((float(RcvrInfo[RcvrIdx["LAT"]]) - PrevLat)/(Lat-PrevLat)))
+                        (abs((float(RcvrInfo[RcvrIdx["LAT"]])) - PrevLat)/(Lat-PrevLat)))
                 RcvrMeteoParam.append(Parameters)
             break
         else:
             PrevLat = Lat
     
-    # Compute meteorological parameters around the receiver (for northen latitudes)
+    # Compute meteorological parameters around the receiver
+    if float(RcvrInfo[RcvrIdx["LAT"]]) > 0:
+        # For northen latitudes
+        Dmin = 28.0
+    else:
+        # For southern latitudes
+        Dmin = 211.0
+
     RcvrP = RcvrMeteoParam[InterIdx["PPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["PPar"]][InterKey["Variation"]] * \
-        cos(2*pi*(Doy - 28)/365.25)
+        cos(2*pi*(Doy - Dmin)/365.25)
     RcvrT = RcvrMeteoParam[InterIdx["TPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["TPar"]][InterKey["Variation"]] * \
-        cos(2*pi*(Doy - 28)/365.25)
+        cos(2*pi*(Doy - Dmin)/365.25)
     Rcvre = RcvrMeteoParam[InterIdx["ePar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["ePar"]][InterKey["Variation"]] * \
-        cos(2*pi*(Doy - 28)/365.25)
+        cos(2*pi*(Doy - Dmin)/365.25)
     RcvrB = RcvrMeteoParam[InterIdx["BetaPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["BetaPar"]][InterKey["Variation"]] * \
-        cos(2*pi*(Doy - 28)/365.25)
+        cos(2*pi*(Doy - Dmin)/365.25)
     RcvrL = RcvrMeteoParam[InterIdx["LambdaPar"]][InterKey["Average"]] - RcvrMeteoParam[InterIdx["LambdaPar"]][InterKey["Variation"]] * \
-        cos(2*pi*(Doy - 28)/365.25)
+        cos(2*pi*(Doy - Dmin)/365.25)
 
     # Compute zero-altitude zenith delays
     Zhyd = 1e-6*((77.604*287.054)/9.784)*RcvrP
