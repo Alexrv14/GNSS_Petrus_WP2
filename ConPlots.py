@@ -23,7 +23,7 @@ from collections import OrderedDict
 
 # Plots configuration flags
 ConfPlots = OrderedDict({})
-ConfPlots["PLOT_SAT_TRACKS"] = 0
+ConfPlots["PLOT_SAT_TRACKS"] = 1
 ConfPlots["PLOT_LTC"] = 0
 ConfPlots["PLOT_ENT_GPS"] = 0
 ConfPlots["PLOT_SIGMA_FLT"] = 0

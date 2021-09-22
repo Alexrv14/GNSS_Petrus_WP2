@@ -100,6 +100,8 @@ def plotSatTracks(CorrFile, CorrData, RcvrInfo):
     PlotConf["Type"] = "Lines"
     PlotConf["FigSize"] = (16.8,15.2)
 
+    PlotConf["Background"] = ["Rcvr"]
+
     RcvrLon, RcvrLat = roundRcvr(RcvrInfo)
     if RcvrLat > 55:
         PlotConf["LonMin"] = -180
@@ -110,7 +112,7 @@ def plotSatTracks(CorrFile, CorrData, RcvrInfo):
         PlotConf["LonMin"] = (RcvrLon - 115) 
         PlotConf["LonMax"] = (RcvrLon + 115) 
         PlotConf["LatMin"] = (RcvrLat - 70)
-        PlotConf["LatMax"] = (RcvrLat + 35) if RcvrLat < 55 else 90
+        PlotConf["LatMax"] = (RcvrLat + 35) 
     PlotConf["LonStep"] = 15
     PlotConf["LatStep"] = 10
 
@@ -125,6 +127,9 @@ def plotSatTracks(CorrFile, CorrData, RcvrInfo):
 
     PlotConf["Marker"] = '.'
     PlotConf["LineWidth"] = 0.75
+    PlotConf["BackMarker"] = "X"
+    PlotConf["BackLineWidth"] = 30.0
+    PlotConf["ColorMarker"] = "darkgreen"
 
     # Processing data to be plotted
     FilterCond = CorrData[CorrIdx["FLAG"]] == 1
@@ -148,10 +153,15 @@ def plotSatTracks(CorrFile, CorrData, RcvrInfo):
     PlotConf["xData"] = {}
     PlotConf["yData"] = {}
     PlotConf["zData"] = {}
-    Label = 0
-    PlotConf["xData"][Label] = Longitude
-    PlotConf["yData"][Label] = Latitude
-    PlotConf["zData"][Label] = CorrData[CorrIdx["ELEV"]][FilterCond]
+    Labels = ["Tracks", "Rcvr"]
+    for Label in Labels:
+        if Label == "Rcvr":
+            PlotConf["xData"][Label] = np.array([RcvrInfo[RcvrIdx["LON"]]])
+            PlotConf["yData"][Label] = np.array([RcvrInfo[RcvrIdx["LAT"]]])
+        else:
+            PlotConf["xData"][Label] = Longitude
+            PlotConf["yData"][Label] = Latitude
+            PlotConf["zData"][Label] = CorrData[CorrIdx["ELEV"]][FilterCond]
 
     # Call generatePlot from Plots library
     generatePlot(PlotConf)
@@ -164,7 +174,7 @@ def plotLtcCorr(CorrFile, CorrData, SatData):
     initPlot(CorrFile, PlotConf, "LTC Corrections", "LTC_CORRECTIONS_vs_TIME")
 
     PlotConf["Type"] = "Lines"
-    PlotConf["FigSize"] = (8.4,7.6)
+    PlotConf["FigSize"] = (12.4,8.6)
     PlotConf["Background"] = ["LTC-X","LTC-Y","LTC-Z","LTC-B","FC"]
 
     PlotConf["yLabel"] = "Fast and Long Term Corrections [m]"
@@ -177,6 +187,8 @@ def plotLtcCorr(CorrFile, CorrData, SatData):
 
     PlotConf["Marker"] = '.'
     PlotConf["LineWidth"] = 1.5
+    PlotConf["BackMarker"] = '.'
+    PlotConf["BackLineWidth"] = 0.75
 
     # Plotting
     PlotConf["xData"] = {}
